@@ -2,137 +2,121 @@
 % Please edit documentation in R/groupci.R
 \name{groupci}
 \alias{groupci}
-\title{make calibration curve for competing risks endpoint}
+\title{Assess Calibration for a Competing Risks Endpoint}
 \usage{
 groupci(
   x,
   ftime,
   fstatus,
+  u,
   cencode = 0,
   failcode = 1,
   ci = TRUE,
   m = 50,
-  g,
-  cuts,
-  u,
+  g = NULL,
+  cuts = NULL,
   pl = TRUE,
   conf.int = 0.95,
-  xlab,
-  ylab,
+  xlab = NULL,
+  ylab = NULL,
   xlim = c(0, 1),
   ylim = c(0, 1),
   lty = 1,
   add = FALSE,
   cex.subtitle = FALSE,
   ab = TRUE,
+  a = 0,
+  b = 1,
   ...
 )
 }
 \arguments{
-\item{x}{a continuous variable}
+\item{x}{A numeric variable to assess calibration for}
 
-\item{ftime}{vector of follow-up time}
+\item{ftime}{The event time variable. See \code{\link[cmprsk]{cuminc}}.}
 
-\item{fstatus}{vector of failure status}
+\item{fstatus}{The event status variable. See \code{\link[cmprsk]{cuminc}}.}
 
-\item{cencode}{value indicating cencering.}
+\item{u}{A single time point to assess calibration at}
 
-\item{failcode}{value indicating event of interest}
+\item{cencode}{The censoring event code. See \code{\link[cmprsk]{cuminc}}.}
 
-\item{ci}{logical flag to output event free probability if setting
-\code{FALSE}}
+\item{failcode}{The value of \code{fstatus} that indicates the event of interest}
 
-\item{m}{desired minimum number of observations in a group}
+\item{ci}{Should the failure probability be assessed? Defaults to \code{TRUE}. If \code{FALSE}, the event-free probability is assessed.}
 
-\item{g}{number of quantile groups}
+\item{m}{Minimum number of observations in each group. See \code{\link[Hmisc]{cut2}}.}
 
-\item{cuts}{actual cuts in \code{x}, e.g. \code{c(0,1,2)} to use [0,1),
-[1,2].}
+\item{g}{Number of quantile groups. See \code{\link[Hmisc]{cut2}}.}
 
-\item{u}{time for which to estimate cumulative incidence}
+\item{cuts}{Actual cut points to use for \code{x}. See \code{\link[Hmisc]{cut2}}.}
 
-\item{pl}{TRUE to plot results}
+\item{pl}{Should the calibration curve be plotted? Defaults to \code{TRUE}.}
 
-\item{conf.int}{defaults to \code{.95} for 0.95 confidence bars.  Set to
-\code{FALSE} to suppress bars}
+\item{conf.int}{Confidence limit on error bars. Defaults to 0.95. Set to \code{FALSE} to suppress.}
 
-\item{xlab}{if \code{pl=TRUE}, is x-axis label.  Default is \code{label(x)}
-or name of calling argument}
+\item{xlab}{The x-axis label. Uses \code{\link[Hmisc]{label}} or name of calling argument if not specified.}
 
-\item{ylab}{if \code{pl=TRUE}, is y-axis label.  Default is constructed
-from \code{u} and time \code{units}}
+\item{ylab}{The y-axis label. Uses a default label is none specified.}
 
-\item{xlim}{range of x axis}
+\item{xlim}{The x-axis limits. Defaults to c(0, 1).}
 
-\item{ylim}{range of y axis}
+\item{ylim}{The y-axis limits. Defaults to c(0, 1).}
 
-\item{lty}{line time for primary line connecting estimates}
+\item{lty}{Line type for connecting estimates and error bars}
 
-\item{add}{set to \code{TRUE} if adding to an existing plot}
+\item{add}{Defaults to \code{FALSE}. Set to \code{TRUE} to add to an existing plot.}
 
-\item{cex.subtitle}{character size for subtitle. Default is \code{.7}.  Use
-\code{FALSE} to suppress subtitle.}
+\item{cex.subtitle}{Character size for subtitle (default 0.7). Defaults to \code{FALSE} to suppress.}
 
-\item{ab}{\code{TRUE} to add a 45 degree line}
+\item{ab}{Should a reference line be added? See \code{\link[graphics]{abline}}.}
 
-\item{\dots}{plotting parameters to pass to the plot and errbar functions}
+\item{a}{The intercept for the reference line. See \code{\link[graphics]{abline}}.}
+
+\item{b}{The slope for the reference line. See \code{\link[graphics]{abline}}.}
+
+\item{...}{Other arguments passed to \code{\link[graphics]{lines}} and \code{\link[Hmisc]{errbar}}.}
 }
 \value{
-matrix with columns named \code{x} (mean predictor value in
-  interval), \code{n} (sample size in interval), \code{events} (number of
-  events in interval), \code{ci} (cumulative incidence estimate),
-  \code{std.err} (standard error of cumulative incidence)
+A matrix with a row for each group of \code{x}:
+\item{x}{Mean value of \code{x}}
+\item{n}{Number of observations}
+\item{events}{Number of events (of type \code{failcode})}
+\item{ci}{Estimated cumulative incidence (or event-free probability if \code{ci=FALSE})}
+\item{std.err}{Estimated standard error for the \code{ci} value}
+If \code{pl=TRUE}, a calibration plot is also displayed.
 }
 \description{
-Cumulative Incidence Estimates vs. a Continuous Variable
+Uses \code{\link[cmprsk]{cuminc}} to estimate the cumulative incidence at a given time point within subgroups of a continuous variable (often predicted failure probabilities from a \code{\link[QHScrnomo]{crr.fit}} model).
 }
 \details{
-Function to divide a continuous variable \code{x} (e.g. age, or predicted
-cumulative incidence at time \code{u} created by
-\code{\link[QHScrnomo]{predict.cmprsk}} into \code{g} quantile groups, get
-cumulative incidence estimates at time \code{u} (a scaler), and to return a
-matrix with columns \code{x}=mean \code{x} in quantile, \code{n}=number of
-subjects, \code{events}=no. events, and \code{ci}= cumulattive incidence at
-time \code{u}, \code{std.err} = standard error. Instead of supplying
-\code{g}, the user can supply the minimum number of subjects to have in the
-quantile group (\code{m}, default=50). If \code{cuts} is given (e.g.
-\code{cuts=c(0,.1,.2,\dots{},.9,.1)}), it overrides \code{m} and \code{g}.
-}
-\note{
-This function is adapted from Harrell's function.
+To divide \code{x}, the function first looks for \code{cuts}, then \code{g}, then \code{m}.
 }
 \examples{
-
-\donttest{
-data(prostate.dat)
 dd <- datadist(prostate.dat)
 options(datadist = "dd")
 prostate.f <- cph(Surv(TIME_EVENT,EVENT_DOD == 1) ~ TX  + rcs(PSA,3) +
            BX_GLSN_CAT +  CLIN_STG + rcs(AGE,3) +
            RACE_AA, data = prostate.dat,
-           x = TRUE, y= TRUE, surv=TRUE,time.inc = 144)
-prostate.crr <- crr.fit(prostate.f,cencode = 0,failcode = 1)
+           x = TRUE, y = TRUE, surv = TRUE,time.inc = 144)
+prostate.crr <- crr.fit(prostate.f, cencode = 0, failcode = 1)
 
-## ten fold cross validation
-prostate.dat$preds.tenf.cv.prostate.crr.120 <-
-                                       tenf.crr(prostate.crr,time = 120)
+# Cross-validated predictions
+prostate.dat$preds.cv.prostate.crr.120 <- tenf.crr(prostate.crr, time = 120, fold = 2)
 
 with(prostate.dat,
-     groupci(preds.tenf.cv.prostate.crr.120 , ftime = TIME_EVENT,
+     groupci(preds.cv.prostate.crr.120, ftime = TIME_EVENT,
              fstatus =EVENT_DOD, g = 5, u = 120,
              xlab = "Nomogram predicted 10-year cancerspecific mortality",
              ylab = "Observed predicted 10-year cancerspecific mortality")
 )
-}
-
 
 }
 \seealso{
-\code{\link[cmprsk]{cuminc}},\code{\link[QHScrnomo]{pred.ci}}
+\code{\link[cmprsk]{cuminc}} \code{\link[QHScrnomo]{pred.ci}} \code{\link[Hmisc]{cut2}}
 }
 \author{
-Changhong Yu, Michael Kattan, Ph.D \cr Department of Quantitative
-  Health Sciences\cr Cleveland Clinic\cr
+Changhong Yu, Michael Kattan, Ph.D \cr Department of Quantitative Health Sciences\cr Cleveland Clinic\cr
 }
 \keyword{nonparametric}
 \keyword{survival}

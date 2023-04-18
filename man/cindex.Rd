@@ -2,7 +2,7 @@
 % Please edit documentation in R/cindex.R
 \name{cindex}
 \alias{cindex}
-\title{Concordance index calculation}
+\title{Concordance Index Calculation (C-Index)}
 \usage{
 cindex(
   prob,
@@ -15,65 +15,47 @@ cindex(
 )
 }
 \arguments{
-\item{prob}{predicted risk of failure event, either probability or
-risk score}
+\item{prob}{A risk score (typically a probability giving the risk of event failure)}
 
-\item{fstatus}{failure(event) variable}
+\item{fstatus}{The event status}
 
-\item{ftime}{follow-up time variable for survival or competing risks
-predictions}
+\item{ftime}{The event times. Applies when the \code{type} argument is \code{"survival"} or \code{"crr"}}
 
-\item{type}{type of regression models corresponding to different type
-of outcomes.
-'logis' is the default value for binary outcome, 'surv' for ordinary
-survival outcome
-and 'crr' for competing risks outcome.}
+\item{type}{The outcome type: \code{"logistic"} for binary, \code{"survival"} for ordinary time-to-event, and \code{"crr"} for competing risks outcomes. Defaults to \code{"crr"}.}
 
-\item{failcode}{coding for failure(event). 1 is the default value.}
+\item{failcode}{The value of \code{fstatus} that indicates the event of interest. Defaults to \code{1}.}
 
-\item{cencode}{coding for censoring. 0 is the defaul}
+\item{cencode}{The censoring event code. Defaults to \code{0}.}
 
-\item{tol}{error tolerance. the default value is 1e-20.}
+\item{tol}{Error tolerance (not used)}
 }
 \value{
-a vector of returned values.
-\item{N}{the total number of observations in the input data}
-\item{n}{the nonmissing number of observations that was used f
-or calculation}
-\item{usable}{the total number of usable pairs.}
-\item{oncordant}{the number of concordant pairs}
-\item{cindex}{the concordance index that equal to the number of
-concordant pairs
-divided by the total number of usable pairs.}
+A named vector with following elements:
+\item{N}{Total number of observations in the input data}
+\item{n}{Number of observations used for calculation}
+\item{usable}{Total number of usable pairs}
+\item{concordant}{Number of concordant pairs}
+\item{cindex}{The concordance index: number of concordant pairs divided by the total number of usable pairs}
 }
 \description{
-Calculate concordance index
-}
-\details{
-to calculate the discrimination metric, concordance index for binary,
-time-to event and competing risks outcomes
+Computes the concordance index for a predictor as a discrimination metric for binary, time-to-event, and competing risks outcomes.
 }
 \examples{
-
-\donttest{
-data(prostate.dat)
 dd <- datadist(prostate.dat)
 options(datadist = "dd")
 prostate.f <- cph(Surv(TIME_EVENT,EVENT_DOD == 1) ~ TX  + rcs(PSA,3) +
            BX_GLSN_CAT +  CLIN_STG + rcs(AGE,3) +
            RACE_AA, data = prostate.dat,
-           x = TRUE, y= TRUE, surv=TRUE,time.inc = 144)
-prostate.crr <- crr.fit(prostate.f,cencode = 0,failcode = 1)
+           x = TRUE, y = TRUE, surv = TRUE,time.inc = 144)
+prostate.crr <- crr.fit(prostate.f, cencode = 0, failcode = 1)
 
-## ten fold cross validation
-prostate.dat$preds.tenf.cv.prostate.crr.120 <-
-                                       tenf.crr(prostate.crr,time = 120)
+# Cross-validated predictions
+prostate.dat$preds.cv.prostate.crr.120 <- tenf.crr(prostate.crr, time = 120, fold = 2)
 
-## calculate the CRR version of concordance index
-with(prostate.dat, cindex(preds.tenf.cv.prostate.crr.120 ,
+## calculate the competing-risks version of concordance index
+with(prostate.dat, cindex(preds.cv.prostate.crr.120,
                           ftime = TIME_EVENT,
                           fstatus =EVENT_DOD, type = "crr"))["cindex"]
-}
 
 }
 \author{

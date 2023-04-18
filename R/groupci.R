@@ -1,254 +1,320 @@
-##' Cumulative Incidence Estimates vs. a Continuous Variable
+##' Assess Calibration for a Competing Risks Endpoint
 ##'
+##' Uses \code{\link[cmprsk]{cuminc}} to estimate the cumulative incidence at a given time point within subgroups of a continuous variable (often predicted failure probabilities from a \code{\link[QHScrnomo]{crr.fit}} model).
 ##'
-##' Function to divide a continuous variable \code{x} (e.g. age, or predicted
-##' cumulative incidence at time \code{u} created by
-##' \code{\link[QHScrnomo]{predict.cmprsk}} into \code{g} quantile groups, get
-##' cumulative incidence estimates at time \code{u} (a scaler), and to return a
-##' matrix with columns \code{x}=mean \code{x} in quantile, \code{n}=number of
-##' subjects, \code{events}=no. events, and \code{ci}= cumulattive incidence at
-##' time \code{u}, \code{std.err} = standard error. Instead of supplying
-##' \code{g}, the user can supply the minimum number of subjects to have in the
-##' quantile group (\code{m}, default=50). If \code{cuts} is given (e.g.
-##' \code{cuts=c(0,.1,.2,\dots{},.9,.1)}), it overrides \code{m} and \code{g}.
+##' @param x A numeric variable to assess calibration for
+##' @param ftime The event time variable. See \code{\link[cmprsk]{cuminc}}.
+##' @param fstatus The event status variable. See \code{\link[cmprsk]{cuminc}}.
+##' @param u A single time point to assess calibration at
+##' @param cencode The censoring event code. See \code{\link[cmprsk]{cuminc}}.
+##' @param failcode The value of \code{fstatus} that indicates the event of interest
+##' @param ci Should the failure probability be assessed? Defaults to \code{TRUE}. If \code{FALSE}, the event-free probability is assessed.
+##' @param m Minimum number of observations in each group. See \code{\link[Hmisc]{cut2}}.
+##' @param g Number of quantile groups. See \code{\link[Hmisc]{cut2}}.
+##' @param cuts Actual cut points to use for \code{x}. See \code{\link[Hmisc]{cut2}}.
+##' @param pl Should the calibration curve be plotted? Defaults to \code{TRUE}.
+##' @param conf.int Confidence limit on error bars. Defaults to 0.95. Set to \code{FALSE} to suppress.
+##' @param xlab The x-axis label. Uses \code{\link[Hmisc]{label}} or name of calling argument if not specified.
+##' @param ylab The y-axis label. Uses a default label is none specified.
+##' @param xlim The x-axis limits. Defaults to c(0, 1).
+##' @param ylim The y-axis limits. Defaults to c(0, 1).
+##' @param lty Line type for connecting estimates and error bars
+##' @param add Defaults to \code{FALSE}. Set to \code{TRUE} to add to an existing plot.
+##' @param cex.subtitle Character size for subtitle (default 0.7). Defaults to \code{FALSE} to suppress.
+##' @param ab Should a reference line be added? See \code{\link[graphics]{abline}}.
+##' @param a The intercept for the reference line. See \code{\link[graphics]{abline}}.
+##' @param b The slope for the reference line. See \code{\link[graphics]{abline}}.
+##' @param ... Other arguments passed to \code{\link[graphics]{lines}} and \code{\link[Hmisc]{errbar}}.
 ##'
-##' @title make calibration curve for competing risks endpoint
-##' @param x a continuous variable
-##' @param ftime vector of follow-up time
-##' @param fstatus vector of failure status
-##' @param cencode value indicating cencering.
-##' @param failcode value indicating event of interest
-##' @param ci logical flag to output event free probability if setting
-##'   \code{FALSE}
-##' @param m desired minimum number of observations in a group
-##' @param g number of quantile groups
-##' @param cuts actual cuts in \code{x}, e.g. \code{c(0,1,2)} to use [0,1),
-##'   [1,2].
-##' @param u time for which to estimate cumulative incidence
-##' @param pl TRUE to plot results
-##' @param conf.int defaults to \code{.95} for 0.95 confidence bars.  Set to
-##'   \code{FALSE} to suppress bars
-##' @param xlab if \code{pl=TRUE}, is x-axis label.  Default is \code{label(x)}
-##'   or name of calling argument
-##' @param ylab if \code{pl=TRUE}, is y-axis label.  Default is constructed
-##'   from \code{u} and time \code{units}
-##' @param xlim range of x axis
-##' @param ylim range of y axis
-##' @param lty line time for primary line connecting estimates
-##' @param add set to \code{TRUE} if adding to an existing plot
-##' @param cex.subtitle character size for subtitle. Default is \code{.7}.  Use
-##'   \code{FALSE} to suppress subtitle.
-##' @param ab \code{TRUE} to add a 45 degree line
-##' @param \dots plotting parameters to pass to the plot and errbar functions
-##' @return matrix with columns named \code{x} (mean predictor value in
-##'   interval), \code{n} (sample size in interval), \code{events} (number of
-##'   events in interval), \code{ci} (cumulative incidence estimate),
-##'   \code{std.err} (standard error of cumulative incidence)
-##' @note This function is adapted from Harrell's function.
-##' @author Changhong Yu, Michael Kattan, Ph.D \cr Department of Quantitative
-##'   Health Sciences\cr Cleveland Clinic\cr
-##' @importFrom Hmisc label cut2 errbar
-##' @importFrom cmprsk cuminc
-##' @export
-##' @seealso \code{\link[cmprsk]{cuminc}},\code{\link[QHScrnomo]{pred.ci}}
+##' @details To divide \code{x}, the function first looks for \code{cuts}, then \code{g}, then \code{m}.
+##'
+##' @return A matrix with a row for each group of \code{x}:
+##' \item{x}{Mean value of \code{x}}
+##' \item{n}{Number of observations}
+##' \item{events}{Number of events (of type \code{failcode})}
+##' \item{ci}{Estimated cumulative incidence (or event-free probability if \code{ci=FALSE})}
+##' \item{std.err}{Estimated standard error for the \code{ci} value}
+##' If \code{pl=TRUE}, a calibration plot is also displayed.
+##'
+##' @author Changhong Yu, Michael Kattan, Ph.D \cr Department of Quantitative Health Sciences\cr Cleveland Clinic\cr
+##' @seealso \code{\link[cmprsk]{cuminc}} \code{\link[QHScrnomo]{pred.ci}} \code{\link[Hmisc]{cut2}}
 ##' @keywords survival nonparametric
 ##'
+##' @export
+##'
 ##' @examples
-##' 
-##' \donttest{
-##' data(prostate.dat)
 ##' dd <- datadist(prostate.dat)
 ##' options(datadist = "dd")
 ##' prostate.f <- cph(Surv(TIME_EVENT,EVENT_DOD == 1) ~ TX  + rcs(PSA,3) +
 ##'            BX_GLSN_CAT +  CLIN_STG + rcs(AGE,3) +
 ##'            RACE_AA, data = prostate.dat,
-##'            x = TRUE, y= TRUE, surv=TRUE,time.inc = 144)
-##' prostate.crr <- crr.fit(prostate.f,cencode = 0,failcode = 1)
+##'            x = TRUE, y = TRUE, surv = TRUE,time.inc = 144)
+##' prostate.crr <- crr.fit(prostate.f, cencode = 0, failcode = 1)
 ##'
-##' ## ten fold cross validation
-##' prostate.dat$preds.tenf.cv.prostate.crr.120 <-
-##'                                        tenf.crr(prostate.crr,time = 120)
+##' # Cross-validated predictions
+##' prostate.dat$preds.cv.prostate.crr.120 <- tenf.crr(prostate.crr, time = 120, fold = 2)
 ##'
 ##' with(prostate.dat,
-##'      groupci(preds.tenf.cv.prostate.crr.120 , ftime = TIME_EVENT,
+##'      groupci(preds.cv.prostate.crr.120, ftime = TIME_EVENT,
 ##'              fstatus =EVENT_DOD, g = 5, u = 120,
 ##'              xlab = "Nomogram predicted 10-year cancerspecific mortality",
 ##'              ylab = "Observed predicted 10-year cancerspecific mortality")
 ##' )
-##' }
-##' 
 ##'
 groupci <-
-    function(
-        x,
-        ftime,
-        fstatus,
-        cencode = 0,
-        failcode = 1,
-        ci = TRUE,
-        m = 50,
-        g,
-        cuts,
-        u,
-        pl = TRUE,
-        conf.int = 0.95,
-        xlab,
-        ylab,
-        xlim = c(0, 1),
-        ylim = c(0, 1),
-        lty = 1,
-        add = FALSE,
-        cex.subtitle = FALSE,
-        ab = TRUE,
-        ...) {
-        if (missing(u)) {
-            stop("u (time point) must be given")
-        }
-        if (missing(xlab)) {
-            xlab <- label(x)
-        }
-        if (xlab == "") {
-            xlab <- as.character(sys.call()[2])
-        }
-        s <- !(is.na(x) | is.na(ftime) | is.na(fstatus))
-        x <- x[s]
-        ftime <- ftime[s]
-        fstatus <- fstatus[s]
-        x[abs(x) < 1e-10] <- 0
-        e <- fstatus
-        if (length(ftime) != length(fstatus) |
-            length(ftime) != length(x)) {
-            stop("lengths of x and Srv must match")
-        }
-        unit <- attr(ftime, "units")
-        if (is.null(unit) || unit == "") {
-            unit <- "Day"
-        }
-        if (!missing(cuts)) {
-            q <- cut2(x, cuts)
-        } else if (!missing(g)) {
-            q <- cut2(x, g = g)
-        } else {
-            q <- cut2(x, m = m)
-        }
-        q <- oldUnclass(q)
-        g <- length(levels(q))
-        cmi <- single(g)
-        std.err <- pred <- cmi
-        numobs <- events <- integer(g)
-        for (i in seq_len(g)) {
-            s <- q == i
-            nobs <- sum(s)
-            ne <- sum(e[s] == failcode)
-            if (ne == 0) {
-                stop(
-                    "regroup x as there is no event of interest in group ",
-                    i, "\n"
-                )
-            }
-            if (nobs == 0) {
-                numobs[i] <- 0
-                events[i] <- 0
-                pred[i] <- NA
-                cmi[i] <- NA
-                std.err[i] <- NA
-            } else {
-                pred[i] <- mean(x[s], na.rm = TRUE)
-                f <- cuminc(ftime[s], fstatus[s], cencode = cencode)
-                cumci <- pred.ci(f, u, failcode = failcode)
-                cmi[i] <- cumci[["CI.Prob"]]
-                if (!ci) {
-                    pred[i] <- 1 - pred[i]
-                    cmi[i] <- 1 - cmi[i]
-                }
-                std.err[i] <- sqrt(cumci[["CI.Var"]])
-                numobs[i] <- nobs
-                events[i] <- ne
-                fnm <- names(f)
-                statuscode <-
-                    substring(fnm, regexpr(" ", fnm) + 1)
-                # to accomodate faicode = 1
-                tt <- f[[fnm[regexpr(failcode, statuscode) != -1]]]$time
-                n <- length(tt)
-                if (u > tt[n] + 1e-06) {
-                    cat(
-                        "group ",
-                        i,
-                        ":",
-                        "maxftime== ",
-                        tt[n],
-                        "less than u(",
-                        u,
-                        ")\n"
-                    )
-                    cmi[i] <- NA
-                    std.err[i] <- NA
-                }
-            }
-        }
-        z <- cbind(
-            x = pred,
-            n = numobs,
-            events = events,
-            ci = cmi,
-            std.err = std.err
-        )
-        if (pl) {
-            y <- cmi
-            if (conf.int) {
-                zcrit <- stats::qnorm((conf.int + 1) / 2)
-                low <- cmi - zcrit * std.err
-                hi <- cmi + zcrit * std.err
-                # changhong edit ???
-                low[low < 0] <- 0
-                hi[hi > 1] <- 1
-            }
-            if (missing(ylab)) {
-                ylab <- paste(
-                    "Competing Risks",
-                    format(u),
-                    "-",
-                    unit,
-                    " Survival",
-                    sep = ""
-                )
-            }
-            if (!add) {
-                plot(
-                    pred,
-                    y,
-                    xlab = xlab,
-                    ylab = ylab,
-                    type = "n",
-                    xlim = xlim,
-                    ylim = ylim
-                )
-            }
-            graphics::lines(pred, y, lty = lty, ...)
-            if (ab) {
-                graphics::abline(0, 1)
-            }
-            if (conf.int) {
-                errbar(pred, y, hi, low, add = TRUE, lty = lty, ...)
-            }
-            if (!is.logical(cex.subtitle)) {
-                nn <- sum(numobs, na.rm = TRUE)
-                mm <- round(nn / g)
-                graphics::title(
-                    sub = paste(
-                        "n=",
-                        nn,
-                        " d=",
-                        sum(events, na.rm = TRUE),
-                        ",\n       avg. ",
-                        mm,
-                        " patients per group",
-                        sep = ""
-                    ),
-                    adj = 0,
-                    cex = cex.subtitle
-                )
-            }
-        }
-        z
+  function(
+      x,
+      ftime,
+      fstatus,
+      u,
+      cencode = 0,
+      failcode = 1,
+      ci = TRUE,
+      m = 50,
+      g = NULL,
+      cuts = NULL,
+      pl = TRUE,
+      conf.int = 0.95,
+      xlab = NULL,
+      ylab = NULL,
+      xlim = c(0, 1),
+      ylim = c(0, 1),
+      lty = 1,
+      add = FALSE,
+      cex.subtitle = FALSE,
+      ab = TRUE,
+      a = 0,
+      b = 1,
+      ...
+    ) {
+
+    # Check for missing required inputs
+    if(missing(x))
+      stop("Please supply a continuous variable 'x'.")
+    if(missing(ftime))
+      stop("Please supply a vector for 'ftime' indicating the follow-up time.")
+    if(missing(fstatus))
+      stop("Please supply a vector for 'fstatus' indicating the event status.")
+    if(missing(u))
+      stop("Please supply a time point of interest 'u' to evaluate calibration at.")
+
+    # Verify that the inputs are the same length
+    input_lengths <- c(length(x), length(ftime), length(fstatus))
+    if(length(unique(input_lengths)) > 1)
+      stop(paste0("'x', 'ftime', 'fstatus' must be the same lengths. The current lengths are ", paste(input_lengths, collapse = ', '), ", respectively."))
+
+    # Check that the supplied codes are found in the inputs
+    unique_statuses <- unique(fstatus)
+    if(!(failcode %in% unique_statuses))
+      stop(paste0("The supplied 'failcode=", failcode, "' was not found in 'fstatus'"))
+
+    # Check for multiple times
+    if(length(u) > 1) {
+
+      # Set to the first one
+      u <- u[1]
+
+      # Give a warning
+      warning(paste0("Multiple time points supplied, but only one can be used. Defaulting to 'u=", u, "'"))
+
     }
+
+    # Set the x-label
+    if(is.null(xlab)) {
+
+      # Extract the label
+      xlab <- Hmisc::label(x)
+
+      # Check for no value, and set to variable name
+      if(xlab == "")
+        xlab <- as.character(sys.call()[2])
+
+    }
+
+    # Indicate missingness of the vectors
+    s <- !(is.na(x) | is.na(ftime) | is.na(fstatus))
+
+    # Index the subset of complete cases (if necessary)
+    if(sum(!s) > 0) {
+
+      # Extract the subsets
+      x <- x[s]
+      ftime <- ftime[s]
+      fstatus <- fstatus[s]
+
+      # Give a warning to user
+      warning(paste0(sum(!s), " observations removed due to missingness."))
+
+    }
+
+    # Set implied zeros
+    x[abs(x) < 1e-10] <- 0
+
+    # Extract/set the units
+    unit <- attr(ftime, "units")
+    if(is.null(unit) || unit == "")
+      unit <- "Day"
+
+    # Set the groups in order of precedence depending on user input
+    if(!is.null(cuts)) {
+
+      # User-supplied cut points
+      q <- Hmisc::cut2(x, cuts = cuts)
+
+    } else if(!is.null(g)) {
+
+      # Number of quantile (equally-sized) groups
+      q <- Hmisc::cut2(x, g = g)
+
+    } else {
+
+      # Minimum number of observations per group
+      q <- Hmisc::cut2(x, m = m)
+
+    }
+
+    # Remove the factor class
+    q <- unclass(q)
+
+    # Get the group count
+    g <- length(levels(q))
+
+    # Set some parameters
+    cmi <- double(g)
+    std.err <- pred <- cmi
+    numobs <- events <- integer(g)
+    e <- fstatus
+
+    # Iterate the groups
+    for(i in seq_len(g)) {
+
+      # Find members of the current group
+      s <- q == i
+
+      # Group observation and event volumes
+      nobs <- sum(s)
+      ne <- sum(e[s] == failcode)
+
+      # Check for events
+      if(ne == 0)
+        stop(paste0("There are no events of type 'failcode=", failcode, "' in group ", i, ". Please regroup 'x'."))
+
+      # Check for observations
+      if(nobs == 0) {
+
+        # Set to null values
+        numobs[i] <- 0
+        events[i] <- 0
+        pred[i] <- NA
+        cmi[i] <- NA
+        std.err[i] <- NA
+
+      # If there are observations and events, do some work
+      } else {
+
+        # Observed group average
+        pred[i] <- mean(x[s], na.rm = TRUE)
+
+        # Actual group cumulative incidence
+        f <- cmprsk::cuminc(ftime[s], fstatus[s], cencode = cencode)
+        cumci <- pred.ci(f, u, failcode = failcode)
+        cmi[i] <- cumci[["CI.Prob"]]
+
+        # Change to survival probability (if requested)
+        if(!ci)
+          cmi[i] <- 1 - cmi[i]
+
+        # Set additional results
+        std.err[i] <- sqrt(cumci[["CI.Var"]])
+        numobs[i] <- nobs
+        events[i] <- ne
+
+        # Find the largest failure time
+        fnm <- names(f)
+        statuscode <- substring(fnm, regexpr(" ", fnm) + 1)
+        tt <- f[[fnm[regexpr(failcode, statuscode) != -1]]]$time
+        n <- length(tt)
+
+        # Check time point
+        if(u > tt[n] + 1e-06) {
+
+          # Set to nulls
+          cmi[i] <- NA
+          std.err[i] <- NA
+
+          # Give a warning
+          warning(paste0("The maximum failure time for group ", i, " is ", tt[n], " which is less than the requested time point 'u=", u, "'. Cannot evaluate."))
+
+        }
+
+      }
+
+    }
+
+    # Place into a matrix
+    z <-
+      cbind(
+        x = pred,
+        n = numobs,
+        events = events,
+        ci = cmi,
+        std.err = std.err
+      )
+
+    # Check if a plot should be produced
+    if(pl) {
+
+      # Set y variable
+      y <- cmi
+
+      # Get the y-axis label
+      if(is.null(ylab))
+        ylab <- paste0("Observed ", format(u), "-", unit, " competing risks probability")
+
+      # Check to create a new plot
+      if(!add)
+        graphics::plot(x = pred, y = y, xlab = xlab, ylab = ylab, type = "n", xlim = xlim, ylim = ylim)
+
+      # Add lines to the plot
+      graphics::lines(pred, y, lty = lty, ...)
+
+      # Check to add an ab line
+      if(ab)
+        graphics::abline(a, b)
+
+      # Check to compute confidence limits
+      if(conf.int) {
+
+        # Critical value
+        zcrit <- stats::qnorm((conf.int + 1) / 2)
+
+        # Set limits
+        low <- cmi - zcrit*std.err
+        hi <- cmi + zcrit*std.err
+
+        # Set implied boundaries
+        low[low < 0] <- 0
+        hi[hi > 1] <- 1
+
+        # Add to plot
+        Hmisc::errbar(pred, y, hi, low, add = TRUE, lty = lty, ...)
+
+      }
+
+      # Check for subtitle
+      if(!is.logical(cex.subtitle)) {
+
+        # Compute average observation count
+        nn <- sum(numobs, na.rm = TRUE)
+        mm <- round(nn / g)
+
+        # Add subtitle to graph
+        graphics::title(sub = paste0("n=", nn, " d=", sum(events, na.rm = TRUE), ",\n\tavg. ", mm, " patients per group"), adj = 0, cex = cex.subtitle)
+
+      }
+    }
+
+    # Return the data matrix
+    z
+
+  }

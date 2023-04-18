@@ -1,175 +1,159 @@
-##' Calculate concordance index
+##' Concordance Index Calculation (C-Index)
 ##'
-##' to calculate the discrimination metric, concordance index for binary,
-##' time-to event and competing risks outcomes
+##' Computes the concordance index for a predictor as a discrimination metric for binary, time-to-event, and competing risks outcomes.
 ##'
-##' @title Concordance index calculation
-##' @param prob predicted risk of failure event, either probability or
-##' risk score
-##' @param fstatus failure(event) variable
-##' @param ftime follow-up time variable for survival or competing risks
-##' predictions
-##' @param type type of regression models corresponding to different type
-##' of outcomes.
-##' 'logis' is the default value for binary outcome, 'surv' for ordinary
-##' survival outcome
-##' and 'crr' for competing risks outcome.
-##' @param failcode coding for failure(event). 1 is the default value.
-##' @param cencode coding for censoring. 0 is the defaul
-##' @param tol error tolerance. the default value is 1e-20.
-##' @return a vector of returned values.
-##' \item{N}{the total number of observations in the input data}
-##' \item{n}{the nonmissing number of observations that was used f
-##' or calculation}
-##' \item{usable}{the total number of usable pairs.}
-##' \item{oncordant}{the number of concordant pairs}
-##' \item{cindex}{the concordance index that equal to the number of
-##' concordant pairs
-##' divided by the total number of usable pairs.}
+##' @param prob A risk score (typically a probability giving the risk of event failure)
+##' @param fstatus The event status
+##' @param ftime The event times. Applies when the \code{type} argument is \code{"survival"} or \code{"crr"}
+##' @param type The outcome type: \code{"logistic"} for binary, \code{"survival"} for ordinary time-to-event, and \code{"crr"} for competing risks outcomes. Defaults to \code{"crr"}.
+##' @param failcode The value of \code{fstatus} that indicates the event of interest. Defaults to \code{1}.
+##' @param cencode The censoring event code. Defaults to \code{0}.
+##' @param tol Error tolerance (not used)
+##'
+##' @return A named vector with following elements:
+##' \item{N}{Total number of observations in the input data}
+##' \item{n}{Number of observations used for calculation}
+##' \item{usable}{Total number of usable pairs}
+##' \item{concordant}{Number of concordant pairs}
+##' \item{cindex}{The concordance index: number of concordant pairs divided by the total number of usable pairs}
+##'
 ##' @author Changhong Yu, Michael Kattan, Brian Wells, Amy Nowacki.
-##' @export
-##' @examples
+##' @keywords semiparametric regression
 ##'
-##' \donttest{
-##' data(prostate.dat)
+##' @useDynLib QHScrnomo , cindexCrr, .registration = TRUE
+##' @useDynLib QHScrnomo , cindexLog, .registration = TRUE
+##' @useDynLib QHScrnomo , cindexSurv, .registration = TRUE
+##' @export
+##'
+##' @examples
 ##' dd <- datadist(prostate.dat)
 ##' options(datadist = "dd")
 ##' prostate.f <- cph(Surv(TIME_EVENT,EVENT_DOD == 1) ~ TX  + rcs(PSA,3) +
 ##'            BX_GLSN_CAT +  CLIN_STG + rcs(AGE,3) +
 ##'            RACE_AA, data = prostate.dat,
-##'            x = TRUE, y= TRUE, surv=TRUE,time.inc = 144)
-##' prostate.crr <- crr.fit(prostate.f,cencode = 0,failcode = 1)
+##'            x = TRUE, y = TRUE, surv = TRUE,time.inc = 144)
+##' prostate.crr <- crr.fit(prostate.f, cencode = 0, failcode = 1)
 ##'
-##' ## ten fold cross validation
-##' prostate.dat$preds.tenf.cv.prostate.crr.120 <-
-##'                                        tenf.crr(prostate.crr,time = 120)
+##' # Cross-validated predictions
+##' prostate.dat$preds.cv.prostate.crr.120 <- tenf.crr(prostate.crr, time = 120, fold = 2)
 ##'
-##' ## calculate the CRR version of concordance index
-##' with(prostate.dat, cindex(preds.tenf.cv.prostate.crr.120 ,
+##' ## calculate the competing-risks version of concordance index
+##' with(prostate.dat, cindex(preds.cv.prostate.crr.120,
 ##'                           ftime = TIME_EVENT,
 ##'                           fstatus =EVENT_DOD, type = "crr"))["cindex"]
-##' }
 ##'
-##' @keywords semiparametric regression
-##' @useDynLib QHScrnomo , cindexCrr, .registration = TRUE
-##' @useDynLib QHScrnomo , cindexLog, .registration = TRUE
-##' @useDynLib QHScrnomo , cindexSurv, .registration = TRUE
-##'  
-##'
-
 cindex <-
-    function(
-        prob, fstatus, ftime, type = "crr", failcode = 1, 
-        cencode = 0, tol = 1e-20) {
-        type <-
-            match.arg(
-                type, c("logistic", "survival", "crr"),
-                several.ok = FALSE
-            )
-        if (
-            all(regexpr(toupper(type), toupper(c(
-                "logistic", "survival", "crr"
-            ))) == -1)) {
-            stop("type should be one of 'logistic','survival' or 'crr' !!!")
-        }
-        
-        if (!is.na(pmatch("LOG", toupper(type)))) {
-            if ((N <- length(prob)) != length(fstatus)) {
-                stop(
-                    "event variable has different length",
-                    "from the predicted risk variable!"
-                )
-            }
-            isna <- is.na(prob) + is.na(fstatus)
-            n <- sum(isna == 0)
-            prob <- prob[isna == 0]
-            fstatus <- fstatus[isna == 0]
-            fstatus <- ifelse(fstatus %in% failcode, 1, 0)
-            
-            out <-
-                .C(
-                    "cindexLog",
-                    prob = as.double(prob),
-                    fstatus = as.integer(fstatus),
-                    n = as.integer(n),
-                    npair = integer(2),
-                    cindex = double(1),
-                    PACKAGE = "QHScrnomo"
-                )
-        } else {
-            if (!is.na(pmatch("SURV", toupper(type)))) {
-                if (((N <- length(prob)) != length(fstatus)) |
-                    (length(fstatus) != length(ftime))) {
-                    stop(
-                        "event variable has different length from",
-                        "the predicted risk variable!"
-                    )
-                }
-                isna <- is.na(prob) + is.na(fstatus) + is.na(ftime)
-                n <- sum(isna == 0)
-                prob <- prob[isna == 0]
-                fstatus <- fstatus[isna == 0]
-                ftime <- ftime[isna == 0]
-                fstatus <- ifelse(fstatus %in% failcode, 1, 0)
-                # sort the follow-up time in ascending order
-                ftorder <- order(ftime)
-                prob <- prob[ftorder]
-                fstatus <- fstatus[ftorder]
-                ftime <- ftime[ftorder]
-                out <-
-                    .C(
-                        "cindexSurv",
-                        prob = as.double(prob),
-                        fstatus = as.integer(fstatus),
-                        ftime = as.double(ftime),
-                        n = as.integer(n),
-                        npair = integer(2),
-                        cindex = double(1),
-                        PACKAGE = "QHScrnomo"
-                    )[4:6]
-            } else {
-                if (((N <- length(prob)) != length(fstatus)) |
-                    (length(fstatus) != length(ftime))) {
-                    stop(
-                        "event variable has different length from",
-                        "the predicted risk variable!"
-                    )
-                }
-                isna <- is.na(prob) + is.na(fstatus) + is.na(ftime)
-                n <- sum(isna == 0)
-                prob <- prob[isna == 0]
-                fstatus <- fstatus[isna == 0]
-                ftime <- ftime[isna == 0]
-                fstatus <- ifelse(
-                    fstatus %in% failcode, 1,
-                    ifelse(fstatus %in% cencode, 0, 2)
-                )
-                # sort the follow-up time in ascending order
-                ftorder <- order(ftime)
-                prob <- prob[ftorder]
-                fstatus <- fstatus[ftorder]
-                ftime <- ftime[ftorder]
-                out <-
-                    .C(
-                        "cindexCrr",
-                        prob = as.double(prob),
-                        fstatus = as.integer(fstatus),
-                        ftime = as.double(ftime),
-                        n = as.integer(n),
-                        npair = integer(2),
-                        cindex = double(1),
-                        PACKAGE = "QHScrnomo"
-                    )
-            }
-        }
-        # browser()
-        out <-
-            c(
-                N = N,
-                n = n,
-                usable = out$npair[1],
-                concordant = out$npair[2],
-                cindex = out$cindex
-            )
-        return(out)
+  function(
+      prob, # A risk score
+      fstatus, # Event status
+      ftime, # Event time
+      type = "crr", # Type of validation
+      failcode = 1, # Event status of interest
+      cencode = 0, # Censoring code
+      tol = 1e-20
+    ) {
+
+    # Extract the validation type
+    type <- match.arg(type, c("logistic", "survival", "crr"))
+
+    # Check for lengths; throw error if not equal
+    unequal_length <- length(prob) != length(fstatus)
+    if(unequal_length)
+      stop("'prob' and 'fstatus' are of different lengths.")
+
+    # Check that the supplied code is found in the input
+    if(!(failcode %in% unique(fstatus)))
+      stop(paste0("The supplied 'failcode=", failcode, "' was not found in 'fstatus'"))
+
+    # Find NA cases
+    isna <- is.na(prob) + is.na(fstatus)
+
+    # Check validation type
+    if(type == "logistic") {
+
+      # Set parameters
+      n <- sum(isna == 0)
+      prob <- prob[isna == 0]
+      fstatus <- fstatus[isna == 0]
+      fstatus <- ifelse(fstatus %in% failcode, 1, 0)
+
+      # Run C function
+      out <-
+        .C(
+          "cindexLog",
+          prob = as.double(prob),
+          fstatus = as.integer(fstatus),
+          n = as.integer(n),
+          npair = integer(2),
+          cindex = double(1),
+          PACKAGE = "QHScrnomo"
+        )
+
+    } else {
+
+      # Check for additional equal lengths
+      if(length(fstatus) != length(ftime))
+        stop("'fstatus' and 'ftime' are of different lengths.")
+
+      # Add additional check for NA cases
+      isna <- isna + is.na(ftime)
+
+      # Set parameters
+      n <- sum(isna == 0)
+      prob <- prob[isna == 0]
+      fstatus <- fstatus[isna == 0]
+
+      # Reorder the variables
+      ftorder <- order(ftime)
+      prob <- prob[ftorder]
+      fstatus <- fstatus[ftorder]
+      ftime <- ftime[ftorder]
+
+      # Check for type of survival
+      if(type == "survival") {
+
+        # Set the status
+        fstatus <- ifelse(fstatus %in% failcode, 1, 0)
+
+        # Set the C function name
+        c_func <- "cindexSurv"
+
+      } else {
+
+        # Set the status
+        fstatus <- ifelse(fstatus %in% failcode, 1, ifelse(fstatus %in% cencode, 0, 2))
+
+        # Set the C function name
+        c_func <- "cindexCrr"
+
+      }
+
+      # Run the C function
+      out <-
+        .C(
+          c_func,
+          prob = as.double(prob),
+          fstatus = as.integer(fstatus),
+          ftime = as.double(ftime),
+          n = as.integer(n),
+          npair = integer(2),
+          cindex = double(1),
+          PACKAGE = "QHScrnomo"
+        )
+
+      # Extract components if needed
+      if(type == "survival")
+        out <- out[4:6]
+
     }
+
+    # Gather and return results
+    c(
+      N = length(prob),
+      n = n,
+      usable = out$npair[1],
+      concordant = out$npair[2],
+      cindex = out$cindex
+    )
+
+  }
