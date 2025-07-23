@@ -1,6 +1,6 @@
 Package: QHScrnomo
 Title: Construct Nomograms for Competing Risks Regression Models
-Version: 3.0.1
+Version: 3.0.2
 Authors@R: c(
     person("Michael", "Kattan", email = "kattanm@ccf.org", role = "aut"),
     person("Changhong", "Yu", email = "yuc@ccf.org", role = "aut"),
@@ -13,7 +13,7 @@ Description: Nomograms are constructed to predict the cumulative incidence
     Brennan MF (2003).
 License: GPL (>= 3)
 Encoding: UTF-8
-RoxygenNote: 7.2.2
+RoxygenNote: 7.3.2
 Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: cmprsk, Hmisc
@@ -23,11 +23,11 @@ URL: https://github.com/ClevelandClinicQHS/QHScrnomo
 BugReports: https://github.com/ClevelandClinicQHS/QHScrnomo/issues
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2024-03-18 21:04:02 UTC; alexzajichek
+Packaged: 2025-07-23 17:44:41 UTC; alexzajichek
 Author: Michael Kattan [aut],
   Changhong Yu [aut],
   Xinge Ji [aut],
   Zajichek Alex [cre]
 Maintainer: Zajichek Alex <zajicha2@ccf.org>
 Repository: CRAN
-Date/Publication: 2024-03-18 21:20:02 UTC
+Date/Publication: 2025-07-23 18:20:02 UTC

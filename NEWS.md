@@ -1,3 +1,7 @@
+# QHScrnomo 3.0.2
+
+* HTML documentation issue
+
 # QHScrnomo 3.0.1
 
 * Fixed issue in `crr.fit` caused by extracting column when input data set is a `tibble` (#1)
